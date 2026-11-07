@@ -307,6 +307,17 @@ h1,h2,p{margin:0}
   .scrim{align-items:center}
   .sheet{border-radius:18px;padding-bottom:20px}
 }
+/* ----- 대기화면(화면보호) ----- */
+#idle{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;background:var(--bg);color:var(--ink);cursor:pointer;touch-action:manipulation}
+#idle.on{display:flex;animation:idlein .6s ease both}
+#idle .elogo{width:min(52vw,300px);height:auto;animation:idlefloat 6s ease-in-out infinite}
+#idle .itime{font:400 clamp(44px,12vw,92px)/1 var(--font-display);font-variant-numeric:tabular-nums;color:var(--brand);letter-spacing:.02em}
+#idle .idate{font-size:clamp(15px,3.6vw,20px);color:var(--ink-2)}
+#idle .itap{margin-top:8px;font-size:14px;color:var(--mute);animation:idlepulse 3s ease-in-out infinite}
+@keyframes idlein{from{opacity:0}to{opacity:1}}
+@keyframes idlefloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes idlepulse{0%,100%{opacity:.45}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#idle .elogo,#idle .itap,#idle.on{animation:none}}
 @media (prefers-reduced-motion:reduce){
   .pane-detail,.skel,.hist summary::before{transition:none;animation:none}
 }
@@ -1558,6 +1569,37 @@ $('#q').addEventListener('input',function(e){S.q=e.target.value;renderList()});
 $('#sort').addEventListener('change',function(e){S.sort=e.target.value;renderList()});
 
 /* ---------- 시작 ---------- */
+/* ---------- 대기화면: 일정 시간 아무것도 안 하면 로고 화면으로 덮어 고객 정보를 가린다 ---------- */
+var IDLE_MS=3*60*1000,idleAt=Date.now(),idleOn=false,idleEl=null,idleTick=null;
+function idleShow(){
+  if(idleOn)return;
+  if(!idleEl){idleEl=document.createElement('div');idleEl.id='idle';idleEl.setAttribute('role','button');idleEl.setAttribute('aria-label','화면을 터치하면 다시 시작해요');document.body.appendChild(idleEl)}
+  idleEl.innerHTML=LOGO_IMG+'<div class="itime" id="idleTime"></div><div class="idate" id="idleDate"></div><div class="itap">화면을 터치하면 시작돼요</div>';
+  idleClock();idleEl.classList.add('on');idleOn=true;
+  idleTick=setInterval(idleClock,15000);
+}
+function idleClock(){
+  var d=new Date(),t=document.getElementById('idleTime'),e=document.getElementById('idleDate');if(!t)return;
+  t.textContent=pad(d.getHours())+':'+pad(d.getMinutes());
+  e.textContent=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+'일월화수목금토'.charAt(d.getDay())+'요일';
+}
+function idleHide(){
+  if(!idleOn)return;
+  idleOn=false;clearInterval(idleTick);idleEl.classList.remove('on');idleAt=Date.now();
+  try{if(typeof syncFromStorage==='function')syncFromStorage()}catch(e){}
+}
+function idleTouch(e){
+  if(idleOn){
+    if(e&&e.type==='pointerdown'||e&&e.type==='keydown'){e.preventDefault();e.stopPropagation();idleHide()}
+    return;
+  }
+  idleAt=Date.now();
+}
+['pointerdown','keydown','wheel','touchstart'].forEach(function(n){document.addEventListener(n,idleTouch,true)});
+document.addEventListener('pointermove',function(){if(!idleOn)idleAt=Date.now()},{passive:true});
+document.addEventListener('click',function(e){if(idleOn){e.preventDefault();e.stopPropagation()}},true);
+setInterval(function(){if(!idleOn&&Date.now()-idleAt>=IDLE_MS)idleShow()},5000);
+
 function afterLoad(){
   if(!autoSel&&customers.length&&!S.sel&&window.matchMedia('(min-width:880px)').matches){
     S.sel=customers.slice().sort(function(a,b){return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))})[0].id;autoSel=true;
