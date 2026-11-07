@@ -374,7 +374,7 @@ var digits=function(s){return String(s||'').replace(/\D/g,'')};
 function parseYmd(s){var a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2])}
 function daysUntil(s){var t=parseYmd(s),n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/864e5)}
 function addDaysStr(n){var d=new Date();d.setDate(d.getDate()+n);return ymd(d)}
-var TPLANS={A:{title:'월관리 A (위생목욕)',extra:'',weeks:8,label:'위생목욕 4회',sub:'유효기간 8주'},B:{title:'월관리 B (위생목욕)',extra:'월관리 B (스파/팩)',weeks:12,label:'위생목욕 4회 + 스파/팩 4회',sub:'유효기간 12주'}};
+var TPLANS={A:{title:'월관리 A (위생목욕)',extra:'',weeks:8,label:'위생목욕 4회',sub:'유효기간 8주'},B:{title:'월관리 B (위생목욕+스파/팩)',extra:'',weeks:12,label:'위생목욕 4회 + 스파/팩 4회',sub:'유효기간 12주 · 1회에 함께 차감'}};
 function addMonthsStr(m){var n=new Date(),day=n.getDate();var t=new Date(n.getFullYear(),n.getMonth()+m,1);var last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return ymd(t)}
 function fmtPhone(v){var d=digits(v).slice(0,11);if(d.length<=3)return d;if(d.length<=7)return d.slice(0,3)+'-'+d.slice(3);return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7)}
 function fmtAt(s){s=String(s||'');return s.slice(5,7)+'.'+s.slice(8,10)+' '+s.slice(11,16)}
@@ -1470,7 +1470,7 @@ function useTerm(cid,pid){
   if(termLock[pid]&&now-termLock[pid]<1500)return;   /* 연달아 눌러도 한 번만 */
   termLock[pid]=now;
   var res=null;
-  mutate(cid,function(x){var pp=findP(x,pid);if(!pp)return false;res=Ledger.useTerm(pp,'');if(!res)return false});
+  mutate(cid,function(x){var pp=findP(x,pid);if(!pp)return false;res=Ledger.useTerm(pp,/^월관리 B \(/.test(pp.title)?'위생목욕 + 스파/팩':'');if(!res)return false});
   if(!res){toast('사용하지 못했어요. 남은 횟수가 없거나 회원권이 바뀌었어요.',{ms:5000});return}
   var lid=res.entry.id;
   toast('1회 사용 · 남은 '+res.entry.after+'회',{label:'되돌리기',action:function(){undo(cid,pid,lid)}});
