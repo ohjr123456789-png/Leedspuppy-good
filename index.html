@@ -22,7 +22,7 @@ img{max-width:100%}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
 /* 레이아웃: 왼쪽 고객 목록 + 오른쪽 회원권 상세. 폭이 좁으면 상세가 전체 화면으로 덮인다.
-   색: 리즈퍼피 로고에서 가져옴. 바탕 크림, 글자·테두리 갈색, 정액권은 하늘색, 정기권은 분홍.
+   색: 리즈퍼피 로고에서 가져옴. 바탕 크림, 글자·테두리 갈색, 정액권은 하늘색, 월관리는 분홍.
    경고(황갈색)와 오류(빨강)는 별도 의미색. */
 :root{
   --font-body:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,sans-serif;
@@ -373,6 +373,8 @@ var won=function(n){return num(n)+'원'};
 var digits=function(s){return String(s||'').replace(/\D/g,'')};
 function parseYmd(s){var a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2])}
 function daysUntil(s){var t=parseYmd(s),n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/864e5)}
+function addDaysStr(n){var d=new Date();d.setDate(d.getDate()+n);return ymd(d)}
+var TPLANS={A:{title:'월관리 A (위생목욕)',extra:'',weeks:8,label:'위생목욕 4회',sub:'유효기간 8주'},B:{title:'월관리 B (위생목욕)',extra:'월관리 B (스파/팩)',weeks:12,label:'위생목욕 4회 + 스파/팩 4회',sub:'유효기간 12주'}};
 function addMonthsStr(m){var n=new Date(),day=n.getDate();var t=new Date(n.getFullYear(),n.getMonth()+m,1);var last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return ymd(t)}
 function fmtPhone(v){var d=digits(v).slice(0,11);if(d.length<=3)return d;if(d.length<=7)return d.slice(0,3)+'-'+d.slice(3);return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7)}
 function fmtAt(s){s=String(s||'');return s.slice(5,7)+'.'+s.slice(8,10)+' '+s.slice(11,16)}
@@ -463,7 +465,7 @@ function migrateC(c){
   }
   c.schema=2;return c;
 }
-function normC(c){c=c||{};migrateC(c);c.passes=Array.isArray(c.passes)?c.passes:[];c.passes.forEach(function(p){p.log=Array.isArray(p.log)?p.log:[]});return c}
+function normC(c){c=c||{};migrateC(c);c.passes=Array.isArray(c.passes)?c.passes:[];c.passes.forEach(function(p){p.log=Array.isArray(p.log)?p.log:[];if(p.type==='term'&&p.title==='정기권')p.title='월관리'});return c}
 var findC=function(id){return customers.find(function(c){return c.id===id})};
 var findP=function(c,id){return (c.passes||[]).find(function(p){return p.id===id})};
 var passState=function(p){return p.remaining<=0?'done':(p.expires&&daysUntil(p.expires)<0?'expired':'active')};
@@ -717,13 +719,13 @@ function renderStatus(){
 function renderChips(){
   var cnt={all:customers.length,value:0,term:0,soon:0};
   customers.forEach(function(c){var s=sums(c);if(s.nv)cnt.value++;if(s.nt)cnt.term++;if(s.soon)cnt.soon++});
-  var defs=[['all','전체'],['value','정액권'],['term','정기권'],['soon','만료 임박']];
+  var defs=[['all','전체'],['value','정액권'],['term','월관리'],['soon','만료 임박']];
   $('#chips').innerHTML=defs.map(function(d){return '<button class="chip" type="button" data-act="filter" data-f="'+d[0]+'" aria-pressed="'+(S.filter===d[0])+'">'+d[1]+'<b>'+cnt[d[0]]+'</b></button>'}).join('');
 }
 function renderSummary(){
   var bal=0,left=0,soon=0,soon2=0;
   customers.forEach(function(c){var s=sums(c);bal+=s.bal;left+=s.left;soon+=s.soon;soon2+=s.soon2});
-  $('#summary').innerHTML=customers.length?'<div class="sum"><div><span>정기권 남은 횟수</span><b>'+num(left)+'회</b></div><button type="button" class="sumbtn" data-act="filter-soon" aria-pressed="'+(S.filter==='soon')+'"'+(soon?'':' disabled')+'><span>'+SOON+'일 내 만료'+(soon?' ›':'')+'</span><b>'+soon+'건</b></button><button type="button" class="sumbtn" data-act="filter-soon2" aria-pressed="'+(S.filter==='soon2')+'"'+(soon2?'':' disabled')+'><span>'+SOON2+'일 내 만료'+(soon2?' ›':'')+'</span><b>'+soon2+'건</b></button></div>':'';
+  $('#summary').innerHTML=customers.length?'<div class="sum"><div><span>월관리 남은 횟수</span><b>'+num(left)+'회</b></div><button type="button" class="sumbtn" data-act="filter-soon" aria-pressed="'+(S.filter==='soon')+'"'+(soon?'':' disabled')+'><span>'+SOON+'일 내 만료'+(soon?' ›':'')+'</span><b>'+soon+'건</b></button><button type="button" class="sumbtn" data-act="filter-soon2" aria-pressed="'+(S.filter==='soon2')+'"'+(soon2?'':' disabled')+'><span>'+SOON2+'일 내 만료'+(soon2?' ›':'')+'</span><b>'+soon2+'건</b></button></div>':'';
 }
 function daysSince(s){if(!s)return 9999;var d=new Date(String(s).slice(0,10)+'T00:00:00');if(isNaN(d.getTime()))return 9999;var n=new Date();n.setHours(0,0,0,0);return Math.round((n-d)/864e5)}
 function auditAll(){
@@ -767,7 +769,7 @@ var ICON_TICKET='<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 14h36v6
 function rowHTML(c){
   var s=sums(c),tags='';
   if(s.nv)tags+='<span class="tag val">정액권 '+won(s.bal)+'</span>';
-  if(s.nt)tags+='<span class="tag term">정기권 '+num(s.left)+'회</span>';
+  if(s.nt)tags+='<span class="tag term">월관리 '+num(s.left)+'회</span>';
   if(s.soon2)tags+='<span class="tag warn">'+(s.soonD2<=0?'오늘 만료':'만료 D-'+s.soonD2)+'</span>';
   if(!s.nv&&!s.nt)tags='<span class="tag mute">'+(c.passes.length?'지난 회원권만 있음':'회원권 없음')+'</span>';
   return '<button class="row'+(S.sel===c.id?' on':'')+'" type="button" data-act="select" data-id="'+esc(c.id)+'">'
@@ -779,7 +781,7 @@ function renderList(){
   var el=$('#list');
   if(!ready&&mode!=='local'){el.innerHTML='<div class="rows" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';$('#count').textContent='';return}
   if(!customers.length){
-    el.innerHTML='<div class="empty">'+LOGO_IMG+'<strong>아직 등록된 고객이 없어요</strong><p>고객을 등록하고 정액권이나 정기권을 만들면<br>여기에서 잔액과 남은 횟수를 한눈에 볼 수 있어요.</p><button class="btn primary" type="button" data-act="new-customer">첫 고객 등록</button></div>';
+    el.innerHTML='<div class="empty">'+LOGO_IMG+'<strong>아직 등록된 고객이 없어요</strong><p>고객을 등록하고 정액권이나 월관리를 만들면<br>여기에서 잔액과 남은 횟수를 한눈에 볼 수 있어요.</p><button class="btn primary" type="button" data-act="new-customer">첫 고객 등록</button></div>';
     $('#count').textContent='';return;
   }
   var list=visible();
@@ -796,7 +798,7 @@ function renderList(){
 function passCard(c,p){
   var st=passState(p),ended=st!=='active',v=p.type==='value',open=!!S.open[p.id];
   var soon=isSoon2(p),n=p.expires?daysUntil(p.expires):null;
-  var tags='<span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'정기권')+'</span><span class="ttl">'+esc(p.title)+'</span>';
+  var tags='<span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'월관리')+'</span><span class="ttl">'+esc(p.title)+'</span>';
   if(st==='done')tags+='<span class="tag mute">모두 사용</span>';
   else if(st==='expired')tags+='<span class="tag bad">만료</span>';
   else if(soon)tags+='<span class="tag warn">D-'+n+'</span>';
@@ -855,7 +857,7 @@ function detailHTML(c){
 }
 function renderDetail(){
   var el=$('#detailPane'),c=S.sel&&findC(S.sel);
-  if(!c){el.innerHTML='<div class="empty">'+LOGO_IMG+'<strong>고객을 골라 주세요</strong><p>왼쪽 목록에서 고객을 누르면<br>정액권과 정기권이 여기에 나와요.</p></div>';return}
+  if(!c){el.innerHTML='<div class="empty">'+LOGO_IMG+'<strong>고객을 골라 주세요</strong><p>왼쪽 목록에서 고객을 누르면<br>정액권과 월관리가 여기에 나와요.</p></div>';return}
   el.innerHTML=detailHTML(c);
 }
 function renderAll(){
@@ -888,9 +890,11 @@ function moneyInput(id,cls,ph){
 function quickMoney(to,arr,extra){
   return '<div class="quick">'+arr.map(function(n){return '<button class="q" type="button" data-add="'+n+'" data-to="'+to+'">+'+(n>=10000?num(n/10000)+'만':num(n))+'</button>'}).join('')+(extra||'')+'<button class="q" type="button" data-clear="'+to+'">지우기</button></div>';
 }
-function expiryField(val){
-  return '<div class="field"><label for="f-exp">유효기간 (선택)</label><div class="expiry"><input id="f-exp" type="date" value="'+esc(val||'')+'"><div class="quick">'
-    +'<button class="q" type="button" data-exp="none">없음</button><button class="q" type="button" data-exp="3">3개월</button><button class="q" type="button" data-exp="6">6개월</button><button class="q" type="button" data-exp="12">1년</button></div></div></div>';
+function expiryField(val,kind){
+  /* 정액권(금액)은 5개월·8개월만, 월관리는 예전 선택지. kind가 없으면(회원권 추가) 둘 다 두고 종류에 따라 보여 준다 */
+  var vq='<div class="quick" data-qk="value"'+(kind==='term'?' hidden':'')+'><button class="q" type="button" data-exp="5">5개월</button><button class="q" type="button" data-exp="8">8개월</button></div>';
+  var tq='<div class="quick" data-qk="term"'+(kind==='value'||!kind?' hidden':'')+'><button class="q" type="button" data-exp="none">없음</button><button class="q" type="button" data-exp="3">3개월</button><button class="q" type="button" data-exp="6">6개월</button><button class="q" type="button" data-exp="12">1년</button></div>';
+  return '<div class="field"><label for="f-exp">유효기간 (선택)</label><div class="expiry"><input id="f-exp" type="date" value="'+esc(val||'')+'">'+(kind==='term'?'':vq)+(kind==='value'?'':tq)+'</div></div>';
 }
 function stepper(id,val){
   return '<div class="stepper"><button type="button" data-step="-1" data-to="'+id+'" aria-label="1 줄이기">−</button><input id="'+id+'" inputmode="numeric" value="'+val+'" aria-label="횟수"><button type="button" data-step="1" data-to="'+id+'" aria-label="1 늘리기">+</button></div>';
@@ -900,7 +904,7 @@ var PLANS={300000:{spa:1,months:5},500000:{spa:2,months:8}};
 function planPicker(){
   return '<div class="field"><label>정액권 선택</label><div class="mchips" id="plans">'
    +[300000,500000].map(function(a){var pl=PLANS[a];return '<button class="mc" type="button" data-plan="'+a+'" aria-pressed="false"><span>'+(a/10000)+'만원</span><small>스파 '+pl.spa+'회 · '+pl.months+'개월</small></button>'}).join('')
-   +'</div></div><p class="cap">보너스는 충전 금액의 10%가 자동으로 더해져요. 스파 이용권은 정기권으로 함께 만들어져요.</p>';
+   +'</div></div><p class="cap">보너스는 충전 금액의 10%가 자동으로 더해져요. 스파 이용권은 월관리로 함께 만들어져요.</p>';
 }
 function planText(a,base){var b=bonusOf(a),pl=PLANS[a];return '충전 '+won(a)+' + 보너스 '+won(b)+' = '+(base===undefined?'등록 잔액 '+won(a+b):'충전 후 잔액 '+won(base+a+b))+' · 스파 '+pl.spa+'회 · 유효 '+pl.months+'개월'}
 function spaPass(a,exp){var pl=PLANS[a],p={id:uid('p'),type:'term',title:'스파 '+pl.spa+'회권',expires:exp,createdAt:nowStr(),log:[]};Ledger.open(p,pl.spa,(a/10000)+'만원 정액권 혜택 · 스파 '+pl.spa+'회');return p}
@@ -958,38 +962,50 @@ function openCustomer(cid,prefill){
 function openNewPass(cid){
   var c=findC(cid);if(!c)return;
   openSheet(c.name+' · 회원권 추가','<form id="f-pass" class="form" novalidate>'
-    +'<div class="seg" role="group" aria-label="회원권 종류"><button type="button" data-kind="value" aria-pressed="true">정액권 (금액)</button><button type="button" data-kind="term" aria-pressed="false">정기권 (횟수)</button></div>'
+    +'<div class="seg" role="group" aria-label="회원권 종류"><button type="button" data-kind="value" aria-pressed="true">정액권 (금액)</button><button type="button" data-kind="term" aria-pressed="false">월관리 (횟수)</button></div>'
     +'<div class="field"><label for="f-title">이름</label><input id="f-title" maxlength="30" value="정액권" autocomplete="off"></div>'
     +'<div data-for="value" class="form">'+planPicker()+'</div>'
     +'<div data-for="term" class="form" hidden><div class="field"><label for="f-count">총 횟수</label>'+stepper('f-count',5)+'</div>'
-    +'<div class="quick"><button class="q" type="button" data-setn="4" data-to="f-count">4회</button><button class="q" type="button" data-setn="5" data-to="f-count">5회</button><button class="q" type="button" data-setn="10" data-to="f-count">10회</button></div></div>'
+    +'<div class="quick"><button class="q" type="button" data-setn="4" data-to="f-count">4회</button><button class="q" type="button" data-setn="5" data-to="f-count">5회</button><button class="q" type="button" data-setn="10" data-to="f-count">10회</button></div>'
+    +'<div class="field"><label>세트 선택 (선택)</label><div class="mchips" id="tplans">'
+    +['A','B'].map(function(k){var t=TPLANS[k];return '<button class="mc" type="button" data-tplan="'+k+'" aria-pressed="false"><span>'+k+' · '+esc(t.label)+'</span><small>'+esc(t.sub)+'</small></button>'}).join('')
+    +'</div></div></div>'
     +expiryField('')
     +'<div id="pv" class="preview idle" aria-live="polite"></div><p class="err" id="sheet-err" role="alert" hidden></p>'
     +'<button class="btn val block" id="go" type="submit">회원권 만들기</button></form>',function(root){
-      var form=$('#f-pass',root),kind='value',plan=0;
+      var form=$('#f-pass',root),kind='value',plan=0,tplan='';
       function upd(){
         var pv=$('#pv',root),go=$('#go',root);
         if(kind==='value'){
           pv.className='preview'+(plan?'':' idle');pv.textContent=plan?planText(plan):'30만원 또는 50만원을 선택하세요';
           go.className='btn val block';
         }else{
-          var n=Number(digits($('#f-count',root).value))||0;
-          pv.className='preview t'+(n?'':' idle');pv.textContent=n?'총 '+n+'회':'횟수를 입력하세요';
+          var n=Number(digits($('#f-count',root).value))||0,tp=tplan&&TPLANS[tplan];
+          pv.className='preview t'+(n?'':' idle');pv.textContent=n?(tp?tp.label.replace('위생목욕 4회','위생목욕 '+n+'회')+' · 유효 '+tp.weeks+'주':'총 '+n+'회'):'횟수를 입력하세요';
           go.className='btn term block';
         }
       }
       $$('[data-kind]',root).forEach(function(b){b.addEventListener('click',function(){
         var k=b.dataset.kind;if(k===kind)return;
-        var ti=$('#f-title',root),oldDef=kind==='value'?'정액권':'정기권';
-        if(ti.value.trim()===oldDef||!ti.value.trim())ti.value=k==='value'?'정액권':'정기권';
+        var ti=$('#f-title',root),oldDef=kind==='value'?'정액권':'월관리';
+        if(ti.value.trim()===oldDef||!ti.value.trim()||/^월관리 [AB] \(/.test(ti.value.trim()))ti.value=k==='value'?'정액권':'월관리';
         kind=k;
+        if(k==='value'){tplan='';$$('[data-tplan]',root).forEach(function(x){x.setAttribute('aria-pressed','false')})}
         $$('[data-kind]',root).forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.kind===k))});
         $$('[data-for]',root).forEach(function(x){x.hidden=x.dataset.for!==k});
+        $$('[data-qk]',root).forEach(function(x){x.hidden=x.dataset.qk!==k});
         upd();sheetErr('');
+      })});
+      $$('[data-tplan]',root).forEach(function(b){b.addEventListener('click',function(){
+        var k=b.dataset.tplan,ti=$('#f-title',root),cnt=$('#f-count',root),f=$('#f-exp',root);
+        if(tplan===k){tplan='';b.setAttribute('aria-pressed','false');if(/^월관리 [AB] \(/.test(ti.value.trim()))ti.value='월관리';upd();return}
+        tplan=k;$$('[data-tplan]',root).forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+        ti.value=TPLANS[k].title;cnt.value=4;f.value=addDaysStr(TPLANS[k].weeks*7);
+        sheetErr('');upd();
       })});
       form.addEventListener('input',upd);bindPlans(root,function(a){plan=a;sheetErr('');upd()});upd();
       S.onSubmit=function(){
-        var title=$('#f-title',root).value.trim()||(kind==='value'?'정액권':'정기권');
+        var title=$('#f-title',root).value.trim()||(kind==='value'?'정액권':'월관리');
         var exp=$('#f-exp',root).value||'';
         var p={id:uid('p'),type:kind,title:title,expires:exp,createdAt:nowStr(),log:[]},note,extra=null;
         if(kind==='value'){
@@ -1001,7 +1017,11 @@ function openNewPass(cid){
         }else{
           var n=Number(digits($('#f-count',root).value))||0;
           if(n<1||n>99){sheetErr('횟수는 1회에서 99회 사이로 입력해 주세요.');return}
-          Ledger.open(p,n,n+'회 등록');
+          Ledger.open(p,n,n+'회 등록'+(tplan?' · 세트 '+tplan:''));
+          if(tplan&&TPLANS[tplan].extra){
+            extra={id:uid('p'),type:'term',title:TPLANS[tplan].extra,expires:exp,createdAt:nowStr(),log:[]};
+            Ledger.open(extra,4,'4회 등록 · 세트 '+tplan);
+          }
         }
         var made=mutate(cid,function(x){x.passes.push(p);if(extra)x.passes.push(extra)});closeSheet();if(made)toast(title+' 회원권을 만들었어요');
       };
@@ -1115,10 +1135,10 @@ function openTopup(cid,pid){
   var c=findC(cid),p=c&&findP(c,pid);if(!p)return;
   var v=p.type==='value',curExp=(p.expires&&daysUntil(p.expires)>=0)?p.expires:'';
   openSheet(v?'정액권 충전':'횟수 추가','<form id="f-top" class="form" novalidate>'
-    +'<p class="sheet-sub"><span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'정기권')+'</span><span>'+esc(c.name)+' · '+esc(p.title)+'</span></p>'
+    +'<p class="sheet-sub"><span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'월관리')+'</span><span>'+esc(c.name)+' · '+esc(p.title)+'</span></p>'
     +(v?planPicker()
        :'<div class="field"><label for="f-count">추가할 횟수</label>'+stepper('f-count',5)+'</div><div class="quick"><button class="q" type="button" data-setn="4" data-to="f-count">4회</button><button class="q" type="button" data-setn="5" data-to="f-count">5회</button><button class="q" type="button" data-setn="10" data-to="f-count">10회</button></div>')
-    +expiryField(curExp)
+    +expiryField(curExp,v?'value':'term')
     +'<div id="pv" class="preview idle" aria-live="polite"></div><p class="err" id="sheet-err" role="alert" hidden></p>'
     +'<button class="btn '+(v?'val':'term')+' block" id="go" type="submit">'+(v?'충전하기':'추가하기')+'</button></form>',function(root){
       var pv=$('#pv',root),plan=0;
@@ -1151,7 +1171,7 @@ function openAdjust(cid,pid){
   var c=findC(cid),p=c&&findP(c,pid);if(!p)return;
   var v=p.type==='value';
   openSheet(v?'잔액 조정':'횟수 조정','<form id="f-adj" class="form" novalidate>'
-    +'<p class="sheet-sub"><span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'정기권')+'</span><span>'+esc(c.name)+' · '+esc(p.title)+'</span></p>'
+    +'<p class="sheet-sub"><span class="tag '+(v?'val':'term')+'">'+(v?'정액권':'월관리')+'</span><span>'+esc(c.name)+' · '+esc(p.title)+'</span></p>'
     +'<p class="sheet-sub">현재 '+(v?'잔액 <b>'+won(p.remaining)+'</b>':'남은 횟수 <b>'+p.remaining+'회</b>')+'</p>'
     +(v?'<div class="field"><label for="f-rem">조정 후 잔액</label>'+moneyInput('f-rem')+'</div>'
         +'<div class="quick">'+[-100000,-50000,-10000,10000,50000,100000].map(function(n){return '<button class="q" type="button" data-add="'+n+'" data-to="f-rem">'+(n<0?'−':'+')+num(Math.abs(n)/10000)+'만</button>'}).join('')+'</div>'
@@ -1185,7 +1205,7 @@ function openEditPass(cid,pid){
     +'<p class="sheet-sub">'+esc(c.name)+'</p>'
     +'<div class="field"><label for="f-title">이름</label><input id="f-title" maxlength="30" autocomplete="off" value="'+esc(p.title)+'"></div>'
     +(v?'<div class="field"><label for="f-rem">현재 잔액</label>'+moneyInput('f-rem','sm')+'</div>':'<div class="field"><label for="f-rem">남은 횟수</label>'+stepper('f-rem',p.remaining)+'</div>')
-    +expiryField(p.expires||'')
+    +expiryField(p.expires||'',p.type)
     +'<p class="cap">잔액이나 횟수를 바꾸면 이용 내역에 ‘조정’으로 남아요.</p><p class="err" id="sheet-err" role="alert" hidden></p>'
     +'<button class="btn primary block" type="submit">저장</button></form>',function(root){
       if(v)setMoney($('#f-rem',root),p.remaining);
@@ -1223,7 +1243,7 @@ function cleanCustomer(c){
   if(c.sample)o.sample=true;
   (Array.isArray(c.passes)?c.passes:[]).forEach(function(p){
     if(!p||!ID_OK.test(String(p.id||''))||(p.type!=='value'&&p.type!=='term'))return;
-    var q={id:String(p.id),type:p.type,title:cleanStr(p.title,30)||(p.type==='value'?'정액권':'정기권'),total:cleanNum(p.total),remaining:cleanNum(p.remaining),
+    var q={id:String(p.id),type:p.type,title:cleanStr(p.title,30)||(p.type==='value'?'정액권':'월관리'),total:cleanNum(p.total),remaining:cleanNum(p.remaining),
       expires:/^\d{4}-\d{2}-\d{2}$/.test(String(p.expires||''))?p.expires:'',createdAt:cleanStr(p.createdAt,16),log:[]};
     (Array.isArray(p.log)?p.log:[]).forEach(function(e){
       if(!e||!ID_OK.test(String(e.id||'')))return;
