@@ -1570,7 +1570,7 @@ $('#sort').addEventListener('change',function(e){S.sort=e.target.value;renderLis
 
 /* ---------- 시작 ---------- */
 /* ---------- 대기화면: 일정 시간 아무것도 안 하면 로고 화면으로 덮어 고객 정보를 가린다 ---------- */
-var IDLE_MS=3*60*1000,idleAt=Date.now(),idleOn=false,idleEl=null,idleTick=null;
+var IDLE_MS=1*60*1000,idleAt=Date.now(),idleOn=false,idleEl=null,idleTick=null;
 function idleShow(){
   if(idleOn)return;
   if(!idleEl){idleEl=document.createElement('div');idleEl.id='idle';idleEl.setAttribute('role','button');idleEl.setAttribute('aria-label','화면을 터치하면 다시 시작해요');document.body.appendChild(idleEl)}
