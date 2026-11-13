@@ -286,6 +286,23 @@ h1,h2,p{margin:0}
 .pamt button{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:18px;line-height:1}
 .pamt b{min-width:88px;text-align:right;font-variant-numeric:tabular-nums}
 .pamt .del{margin-left:4px;color:var(--bad)}
+.pamt .svcbtn{width:auto;min-width:56px;padding:0 10px;font-size:13px;font-weight:600}
+.pamt .svcbtn[aria-pressed="true"]{background:var(--brand);color:var(--bg);border-color:var(--brand)}
+.prow.free .pamt b{text-decoration:line-through;color:var(--mute)}
+.prow .sv{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--brand);color:var(--bg);font-size:12px;font-weight:700}
+.ctc{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px;display:grid;gap:8px}
+.ctc .ch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ctc .ch b{font-size:16px}
+.ctc .cm{font-size:13px;color:var(--ink-2)}
+.ctc ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+.ctc details summary{cursor:pointer;font-size:13px;color:var(--mute);min-height:32px}
+.ctc pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0;font:13px/1.5 var(--font-body,inherit);background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px}
+.ctc .cb{display:flex;gap:8px;flex-wrap:wrap}
+.ctc .cb .btn{flex:1 1 90px}
+.svcadd{display:flex;gap:8px;margin-top:8px}
+.svcadd input{flex:1;min-width:0;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;font-size:15px}
+.svcadd button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.ptotal .sub{display:block;font-size:12px;color:var(--mute);font-weight:400}
 .ptotal{display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:700;font-variant-numeric:tabular-nums}
 
 #toastRoot{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;justify-content:center;padding:0 max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));pointer-events:none}
@@ -321,6 +338,7 @@ h1,h2,p{margin:0}
 @media (prefers-reduced-motion:reduce){
   .pane-detail,.skel,.hist summary::before{transition:none;animation:none}
 }
+.tplbox{margin:12px 0}.tplh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.tplbox textarea{width:100%;box-sizing:border-box;font:inherit;line-height:1.5;padding:10px;border:1px solid var(--line,#ccc);border-radius:10px;background:var(--card,#fff);color:inherit;resize:vertical}.tplp pre{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:.9em;background:rgba(127,127,127,.12);padding:10px;border-radius:10px;margin:4px 0 0}.tplchips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 </style>
 <style>
 #cloudRoot{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;background:var(--bg);overflow:auto}
@@ -386,6 +404,20 @@ function parseYmd(s){var a=s.split('-').map(Number);return new Date(a[0],a[1]-1,
 function daysUntil(s){var t=parseYmd(s),n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/864e5)}
 function addDaysStr(n){var d=new Date();d.setDate(d.getDate()+n);return ymd(d)}
 var TPLANS={A:{title:'월관리 A (위생목욕)',extra:'',weeks:8,label:'위생목욕 4회',sub:'유효기간 8주'},B:{title:'월관리 B (위생목욕+스파/팩)',extra:'',weeks:12,label:'위생목욕 4회 + 스파/팩 4회',sub:'유효기간 12주 · 1회에 함께 차감'}};
+/* 시작일 기준 유효기간 계산 */
+function addMonthsFrom(base,m){var y=+base.slice(0,4),mo=+base.slice(5,7)-1,d=+base.slice(8,10);var t=new Date(y,mo+m,1),last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(d,last));return ymd(t)}
+function addDaysFrom(base,n){var t=new Date(+base.slice(0,4),+base.slice(5,7)-1,+base.slice(8,10)+n);return ymd(t)}
+/* 패키지(정액권 30/50만원, 월관리 A/B, 스파 이용권)에 따른 유효기간. 해당 없으면 null */
+function pkgInfo(p){
+  var o=p&&p.log&&p.log[0]&&p.log[0].kind==='open'?p.log[0].delta:0,t=String(p&&p.title||'');
+  if(p.type==='value'){if(o===330000)return {months:5,label:'5개월'};if(o===550000)return {months:8,label:'8개월'};return null}
+  if(/^월관리 A \(/.test(t))return {weeks:8,label:'8주'};
+  if(/^월관리 B \(/.test(t))return {weeks:12,label:'12주'};
+  if(/^스파 1회권/.test(t))return {months:5,label:'5개월'};
+  if(/^스파 2회권/.test(t))return {months:8,label:'8개월'};
+  return null;
+}
+function pkgExpiry(info,start){return info.months?addMonthsFrom(start,info.months):addDaysFrom(start,info.weeks*7)}
 function addMonthsStr(m){var n=new Date(),day=n.getDate();var t=new Date(n.getFullYear(),n.getMonth()+m,1);var last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return ymd(t)}
 function fmtPhone(v){var d=digits(v).slice(0,11);if(d.length<=3)return d;if(d.length<=7)return d.slice(0,3)+'-'+d.slice(3);return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7)}
 function fmtAt(s){s=String(s||'');return s.slice(5,7)+'.'+s.slice(8,10)+' '+s.slice(11,16)}
@@ -540,6 +572,41 @@ var Ledger={
     p.remaining-=e.delta;
     if(e.kind==='charge'){p.total-=e.delta;if(p.total<p.remaining)p.total=p.remaining}
     return 'ok';
+  },
+  /* 내역의 날짜만 바꾼다. 시각은 그대로 두고, 날짜순으로 다시 정렬한 뒤 '그 시점의 값'을 다시 계산한다. 합계(현재 값)는 변하지 않는다. */
+  redate:function(p,lid,date){
+    if(!p||!Array.isArray(p.log))return 'none';
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date||'')))return 'bad';
+    var d=new Date(date+'T00:00:00');if(isNaN(d.getTime())||ymd(d)!==date)return 'bad';
+    if(date>ymd(new Date()))return 'future';
+    var i=p.log.findIndex(function(e){return e.id===lid});if(i<0)return 'none';
+    if(p.log[i].kind==='open')return 'kind';
+    var copy=p.log.map(function(e){return Object.assign({},e)}),t=copy[i];
+    var op=copy[0]&&copy[0].kind==='open'?copy[0]:null;
+    if(op&&date<String(op.at).slice(0,10))return 'early';
+    var tm=String(t.at||'').slice(11,16)||'12:00',at=date+'T'+tm;
+    if(op&&at<op.at)at=op.at;
+    t.at=at;
+    var rest=copy.filter(function(e){return e!==op}).map(function(e,k){return {e:e,k:k}});
+    rest.sort(function(a,b){return a.e.at<b.e.at?-1:a.e.at>b.e.at?1:a.k-b.k});
+    var out=(op?[op]:[]).concat(rest.map(function(x){return x.e})),sum=0;
+    for(var j=0;j<out.length;j++){sum+=out[j].delta;if(sum<0)return 'negative';out[j].after=sum}
+    if(sum!==p.remaining)return 'mismatch';
+    p.log=out;return 'ok';
+  },
+  /* 시작일(등록일) 바꾸기: 등록 내역의 날짜와 createdAt만 바뀐다. 이미 쓴 내역보다 뒤로는 못 옮긴다. */
+  restart:function(p,date){
+    if(!p||!Array.isArray(p.log)||!p.log.length||p.log[0].kind!=='open')return 'none';
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date||'')))return 'bad';
+    var d=new Date(date+'T00:00:00');if(isNaN(d.getTime())||ymd(d)!==date)return 'bad';
+    if(date>ymd(new Date()))return 'future';
+    var nx=p.log[1];
+    var nmin=p.log.slice(1).reduce(function(m,e){var t=String(e.at||'').slice(0,10);return t<m?t:m},'9999');
+    if(nx&&date>nmin)return 'late';
+    var o=p.log[0],tm=String(o.at||'').slice(11,16)||'09:00',at=date+'T'+tm;
+    var mn=p.log.slice(1).reduce(function(m,e){var t=String(e.at||'');return t<m?t:m},'9999');
+    if(at>mn)at=date+'T00:00';
+    o.at=at;p.createdAt=at;return 'ok';
   },
   check:function(p){
     var out=[],s=0;
@@ -747,6 +814,140 @@ function auditAll(){
   });
   return {checked:checked,bad:bad};
 }
+/* ---------- 만료 임박 연락 (반자동) ---------- */
+function contactStage(p){
+  if(!p||passState(p)!=='active'||!p.expires)return 0;
+  var d=daysUntil(p.expires);if(d>SOON2)return 0;
+  var ct=(p.contacts&&p.contacts.exp===p.expires)?p.contacts:{};
+  if(d<=SOON)return ct.d14?0:14;
+  return ct.d30?0:30;
+}
+function contactList(){
+  var out=[];
+  customers.forEach(function(c){
+    var items=[];
+    (c.passes||[]).forEach(function(p){var st=contactStage(p);if(st)items.push({p:p,stage:st,days:daysUntil(p.expires)})});
+    if(items.length)out.push({c:c,items:items,days:Math.min.apply(null,items.map(function(i){return i.days})),urgent:items.some(function(i){return i.stage===14})});
+  });
+  out.sort(function(a,b){return a.days-b.days});
+  return out;
+}
+var TPL_KEY='rizpuppy-contact-tpl';
+var TPL_DEF={
+  t30:'안녕하세요, 리즈퍼피입니다.\n{이름} 이용권 유효기간이 한 달 안으로 다가와 안내드려요.\n{내역}\n유효기간이 지나면 남은 이용권을 사용하실 수 없으니, 만료 전에 방문해 주세요. 예약은 편하게 연락 주세요.',
+  t14:'안녕하세요, 리즈퍼피입니다.\n{이름} 이용권 유효기간이 곧 끝나서 안내드려요.\n{내역}\n유효기간이 지나면 남은 이용권을 사용하실 수 없으니, 만료 전에 방문해 주세요. 예약은 편하게 연락 주세요.'
+};
+var TPL_MAX=800;
+var tplCustom={t30:'',t14:''};
+var tplHook=null;   /* 클라우드 모드에서 서버 저장용으로 채워짐 */
+function tplClean(o){var r={t30:'',t14:''};if(o&&typeof o==='object'){['t30','t14'].forEach(function(k){if(typeof o[k]==='string'&&o[k].trim())r[k]=o[k].slice(0,TPL_MAX)})}return r}
+function tplLoadLocal(){try{tplCustom=tplClean(JSON.parse(localStorage.getItem(TPL_KEY)||'null'))}catch(e){tplCustom={t30:'',t14:''}}}
+function tplSetCustom(o){tplCustom=tplClean(o);try{localStorage.setItem(TPL_KEY,JSON.stringify(tplCustom))}catch(e){}}
+function tplGet(k){return tplCustom[k]||TPL_DEF[k]}
+function tplFill(t,g){
+  var its=g.items,exp=its.map(function(i){return i.p.expires}).sort()[0]||'';
+  var lines=its.map(function(i){
+    var p=i.p,v=p.type==='value',left=v?won(p.remaining):p.remaining+'회';
+    var m=parseInt(p.expires.slice(5,7),10)+'월 '+parseInt(p.expires.slice(8,10),10)+'일';
+    return '· '+p.title+' : 남은 '+(v?'금액 ':'횟수 ')+left+' (유효기간 '+m+'까지)';
+  }).join('\n');
+  var md=exp?parseInt(exp.slice(5,7),10)+'월 '+parseInt(exp.slice(8,10),10)+'일':'';
+  var vals={'{이름}':g.c.name||'','{내역}':lines,'{만료일}':md,'{남은일}':g.days<=0?'오늘':g.days+'일'};
+  Object.keys(vals).forEach(function(k){t=t.split(k).join(vals[k])});
+  return t;
+}
+function contactText(g){return tplFill(tplGet(g.urgent?'t14':'t30'),g)}
+function tplSample(urgent){
+  var d=urgent?9:24,ex=addDaysStr(d);
+  return {c:{name:'몽이'},days:d,urgent:urgent,items:[{p:{type:'value',title:'정액권 30만원',remaining:152000,expires:ex}},{p:{type:'term',title:'월관리 A (위생목욕)',remaining:2,expires:ex}}]};
+}
+function openTplEditor(){
+  var chips=['{이름}','{내역}','{만료일}','{남은일}'];
+  function box(k,label,urg){
+    return '<div class="tplbox"><div class="tplh"><b>'+label+'</b><button class="btn sm" type="button" data-tp="reset" data-k="'+k+'">기본 문구로</button></div>'
+      +'<textarea id="tp-'+k+'" rows="7" maxlength="'+TPL_MAX+'">'+esc(tplGet(k))+'</textarea>'
+      +'<div class="tplp"><small>미리보기 (예시 고객)</small><pre id="pv-'+k+'"></pre></div></div>';
+  }
+  openSheet('연락 문구 수정','<div class="form"><p class="sheet-sub">고객에게 보낼 문구를 마음대로 고쳐 보세요. 아래 버튼을 누르면 그 자리에 고객 정보가 자동으로 들어가는 칸이 추가돼요.</p>'
+    +'<div class="tplchips">'+chips.map(function(c){return '<button class="btn sm" type="button" data-tp="chip" data-v="'+c+'">'+c+'</button>'}).join('')+'</div>'
+    +'<p class="cap"><b>{이름}</b> 반려견 이름 · <b>{내역}</b> 이용권 목록(남은 금액/횟수·유효기간) · <b>{만료일}</b> 가장 빠른 만료일 · <b>{남은일}</b> 만료까지 남은 날</p>'
+    +box('t30','30일 전 안내 문구',false)+box('t14','14일 전 안내 문구',true)
+    +'<div class="cb"><button class="btn primary" type="button" data-tp="save">저장</button><button class="btn" type="button" data-tp="back">취소</button></div></div>',function(root){
+    var last=null;
+    function ta(k){return root.querySelector('#tp-'+k)}
+    function prev(){['t30','t14'].forEach(function(k){root.querySelector('#pv-'+k).textContent=tplFill(ta(k).value,tplSample(k==='t14'))})}
+    ['t30','t14'].forEach(function(k){ta(k).addEventListener('focus',function(){last=ta(k)});ta(k).addEventListener('input',prev)});
+    last=ta('t30');prev();
+    root.addEventListener('click',function(e){
+      var b=e.target.closest('[data-tp]');if(!b)return;
+      var a=b.dataset.tp;
+      if(a==='chip'){var t=last||ta('t30'),v=b.dataset.v,s=t.selectionStart==null?t.value.length:t.selectionStart,en=t.selectionEnd==null?s:t.selectionEnd;
+        if(t.value.length-(en-s)+v.length>TPL_MAX){toast('문구가 너무 길어요');return}
+        t.value=t.value.slice(0,s)+v+t.value.slice(en);t.focus();t.setSelectionRange(s+v.length,s+v.length);prev()}
+      else if(a==='reset'){ta(b.dataset.k).value=TPL_DEF[b.dataset.k];prev()}
+      else if(a==='back')openContacts();
+      else if(a==='save'){
+        var o={t30:ta('t30').value.trim(),t14:ta('t14').value.trim()};
+        ['t30','t14'].forEach(function(k){if(o[k]===TPL_DEF[k])o[k]=''});
+        tplSetCustom(o);if(tplHook){try{tplHook(tplCustom)}catch(er){}}
+        toast('연락 문구를 저장했어요');openContacts();
+      }
+    });
+  });
+}
+function copyText(txt,okMsg){
+  function fallback(){
+    try{var ta=document.createElement('textarea');ta.value=txt;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,99999);
+      var ok=document.execCommand('copy');document.body.removeChild(ta);toast(ok?okMsg:'복사하지 못했어요. 아래 문구를 길게 눌러 직접 복사해 주세요.',{ms:4000})}catch(e){toast('복사하지 못했어요. 아래 문구를 길게 눌러 직접 복사해 주세요.',{ms:5000})}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText&&window.isSecureContext)navigator.clipboard.writeText(txt).then(function(){toast(okMsg)},fallback);
+  else fallback();
+}
+function markContact(cid,pairs){
+  var prev={};
+  mutate(cid,function(x){
+    pairs.forEach(function(pr){
+      var pp=findP(x,pr.pid);if(!pp)return;
+      prev[pr.pid]=pp.contacts?JSON.parse(JSON.stringify(pp.contacts)):null;
+      var ct=(pp.contacts&&pp.contacts.exp===pp.expires)?JSON.parse(JSON.stringify(pp.contacts)):{exp:pp.expires};
+      ct.exp=pp.expires;ct[pr.stage===14?'d14':'d30']=ymd(new Date());
+      pp.contacts=ct;
+    });
+  });
+  toast('연락 완료로 표시했어요',{label:'되돌리기',action:function(){
+    mutate(cid,function(x){Object.keys(prev).forEach(function(pid){var pp=findP(x,pid);if(pp)pp.contacts=prev[pid]})});
+    if($('#ctlist'))openContacts();
+  }});
+}
+function openContacts(){
+  var list=contactList();
+  var body=list.length?list.map(function(g){
+    var c=g.c,dtxt=g.days<=0?'오늘 만료':'D-'+g.days;
+    var pairs=g.items.map(function(i){return i.p.id+':'+i.stage}).join(',');
+    return '<div class="ctc"><div class="ch"><b>'+esc(c.name)+'</b><span class="tag warn">'+dtxt+' · '+(g.urgent?'14일 안내':'30일 안내')+'</span></div>'
+      +'<div class="cm">'+esc(c.pet||'품종 미입력')+' · '+(c.phone?esc(c.phone):'전화번호 없음')+'</div>'
+      +'<ul>'+g.items.map(function(i){var p=i.p,v=p.type==='value';return '<li>'+esc(p.title)+' · '+(v?won(p.remaining):p.remaining+'회')+' 남음 · '+esc(p.expires.slice(5,7)+'.'+p.expires.slice(8,10))+' 만료</li>'}).join('')+'</ul>'
+      +'<details><summary>보낼 문구 보기</summary><pre>'+esc(contactText(g))+'</pre></details>'
+      +'<div class="cb"><button class="btn primary" type="button" data-ct="copy" data-cid="'+esc(c.id)+'">문구 복사</button>'
+      +'<button class="btn" type="button" data-ct="phone" data-cid="'+esc(c.id)+'"'+(c.phone?'':' disabled')+'>번호 복사</button>'
+      +'<button class="btn" type="button" data-ct="done" data-cid="'+esc(c.id)+'" data-pairs="'+esc(pairs)+'">연락했어요</button></div></div>';
+  }).join(''):'<div class="preview">지금 연락할 고객이 없어요. 만료 30일 전, 14일 전이 되면 여기에 나타나요.</div>';
+  openSheet('연락할 고객 '+list.length+'명','<div id="ctlist" class="form"><p class="sheet-sub">문구를 복사해서 카카오톡에 붙여넣고 보낸 뒤 ‘연락했어요’를 눌러 주세요. 눌러 두면 같은 안내가 다시 뜨지 않아요.</p>'+body+'<button class="btn block" type="button" data-ct="tpl">연락 문구 수정</button></div>',function(root){
+    root.addEventListener('click',function(e){
+      var b=e.target.closest('[data-ct]');if(!b)return;
+      if(b.dataset.ct==='tpl'){openTplEditor();return}
+      var cid=b.dataset.cid,g=contactList().find(function(x){return x.c.id===cid});
+      if(!g){openContacts();return}
+      var k=b.dataset.ct;
+      if(k==='copy')copyText(contactText(g),g.c.name+' 안내 문구를 복사했어요');
+      else if(k==='phone')copyText(String(g.c.phone||'').replace(/[^0-9+]/g,''),'전화번호를 복사했어요');
+      else if(k==='done'){
+        var pairs=String(b.dataset.pairs||'').split(',').map(function(z){var a=z.split(':');return {pid:a[0],stage:Number(a[1])}});
+        markContact(cid,pairs);openContacts();
+      }
+    });
+  });
+}
 function renderBanner(){
   var h='';
   var ns=customers.filter(function(c){return c.sample}).length;
@@ -755,6 +956,8 @@ function renderBanner(){
   if(loadWarn)h+='<div class="note bad"><span>'+esc(loadWarn)+'</span><button class="btn sm" type="button" data-act="dismiss-warn">확인</button></div>';
   var au=auditAll();
   if(au.bad.length)h+='<div class="note bad"><span>장부 점검: 계산이 맞지 않는 회원권이 '+au.bad.length+'건 있어요.</span><button class="btn sm" type="button" data-act="audit">확인</button></div>';
+  var cl=contactList();
+  if(cl.length)h+='<div class="note"><span>만료가 가까워 연락할 고객이 <b>'+cl.length+'명</b> 있어요.</span><button class="btn sm" type="button" data-act="contacts">확인</button></div>';
   if(mode==='local'&&real.length&&typeof lastBackup==='function'){
     var lb=lastBackup(),age=lb?daysSince(lb):0;
     var oldest=real.reduce(function(m,c){var t=String(c.createdAt||'9999');return t<m?t:m},'9999');
@@ -843,6 +1046,7 @@ function passCard(c,p){
     var amt=(e.delta>0?'+':'−')+(v?won(Math.abs(e.delta)):Math.abs(e.delta)+'회');
     var cb='';
     if(e.kind==='use'||e.kind==='charge'){var on=S.confirm==='log:'+e.id;cb='<button class="link'+(on?' danger':'')+'" type="button" data-act="cancel-log" data-pid="'+p.id+'" data-lid="'+e.id+'">'+(on?'한 번 더 누르면 취소':'이 내역 취소')+'</button>'}
+    if(e.kind!=='open')cb='<button class="link" type="button" data-act="edit-log-date" data-pid="'+p.id+'" data-lid="'+e.id+'">날짜 수정</button>'+cb;
     return '<li><time>'+esc(fmtAt(e.at))+'</time><span class="note2"><i class="k">'+lab+'</i>'+esc(e.note||'')+'</span><b class="amt'+(e.delta>0?' in':'')+'">'+amt+'</b><span class="after">'+(v?'잔액 '+won(e.after):'남은 '+num(e.after)+'회')+cb+'</span></li>';
   }).join('');
   var delOn=S.confirm==='pass:'+p.id;
@@ -1043,14 +1247,17 @@ function openNewPass(cid){
 function openUse(cid,pid){
   var c=findC(cid),p=c&&findP(c,pid);if(!p)return;
   var M={mode:'menu',size:null,tier:null,svc:null,items:[]};
-  function sum(){return M.items.reduce(function(a,i){return a+i.amt},0)}
+  function sum(){return M.items.reduce(function(a,i){return a+(i.free?0:i.amt)},0)}
+  function freeSum(){return M.items.reduce(function(a,i){return a+(i.free?i.amt:0)},0)}
+  var svcN=0;
   function man(n){return (n/10000).toFixed(1)+'만'}
   function has(key){return M.items.some(function(i){return i.key===key})}
   function syncBase(){
+    var oldBase=M.items.find(function(i){return i.key==='base'});
     M.items=M.items.filter(function(i){return i.key!=='base'});
     if(M.size!==null&&M.tier!==null&&M.svc!==null){
       var sz=MENU.sizes[M.size],row=sz.rows[M.tier];
-      M.items.unshift({key:'base',name:sz.name+' '+row.w+' '+MENU.services[M.svc],amt:row.p[M.svc],group:''});
+      M.items.unshift({key:'base',name:sz.name+' '+row.w+' '+MENU.services[M.svc],amt:row.p[M.svc],group:'',free:!!(oldBase&&oldBase.free)});
     }
   }
   function toggle(key,name,amt,group){
@@ -1072,8 +1279,17 @@ function openUse(cid,pid){
       +MENU.groups.map(function(g,gi){return g.opts.map(function(o,oi){return '<button class="mrow" type="button" data-mk="opt" data-g="'+gi+'" data-i="'+oi+'" aria-pressed="'+has('o'+gi+'-'+oi)+'"><span class="mn">'+esc(g.name)+'<small>'+esc(o[0])+'</small></span><b>'+man(o[1])+'</b></button>'}).join('')}).join('')
       +'</div>';
     h+='<div class="mlabel">선택 내역</div><div class="picked">'+(M.items.length
-      ?M.items.map(function(i){return '<div class="prow"><span class="nm">'+esc(i.name)+'</span><span class="pamt"><button type="button" data-mk="adj" data-k="'+i.key+'" data-d="-5000" aria-label="5천원 줄이기">−</button><b>'+won(i.amt)+'</b><button type="button" data-mk="adj" data-k="'+i.key+'" data-d="5000" aria-label="5천원 늘리기">+</button><button type="button" class="del" data-mk="del" data-k="'+i.key+'" aria-label="빼기">×</button></span></div>'}).join('')+'<div class="ptotal"><span>합계</span><span>'+won(sum())+'</span></div>'
+      ?M.items.map(function(i){
+        var custom=i.key.charAt(0)==='s'&&i.key!=='svc';
+        return '<div class="prow'+(i.free?' free':'')+'"><span class="nm">'+esc(i.name)+(i.free?'<span class="sv">서비스</span>':'')+'</span><span class="pamt">'
+          +(custom?'':(i.free?'':'<button type="button" data-mk="adj" data-k="'+i.key+'" data-d="-5000" aria-label="5천원 줄이기">−</button>'))
+          +(custom?'':'<b>'+won(i.amt)+'</b>')
+          +(custom?'':(i.free?'':'<button type="button" data-mk="adj" data-k="'+i.key+'" data-d="5000" aria-label="5천원 늘리기">+</button>'))
+          +(custom?'':'<button type="button" class="svcbtn" data-mk="free" data-k="'+i.key+'" aria-pressed="'+(!!i.free)+'" aria-label="서비스로 제공 (금액 차감에서 제외)">서비스</button>')
+          +'<button type="button" class="del" data-mk="del" data-k="'+i.key+'" aria-label="빼기">×</button></span></div>'}).join('')
+        +'<div class="ptotal"><span>합계'+(freeSum()?'<span class="sub">서비스 '+won(freeSum())+' 제외</span>':'')+'</span><span>'+won(sum())+'</span></div>'
       :'<p class="cap">메뉴를 고르면 여기에 담겨요.</p>')+'</div>';
+    h+='<div class="svcadd"><input id="f-svc" maxlength="30" autocomplete="off" placeholder="서비스 항목 직접 추가 (예: 귀 청소)"><button type="button" data-mk="svcadd">추가</button></div><p class="cap">‘서비스’를 누르면 그 항목은 금액에서 빠지고, 내역에 서비스로 남아요.</p>';
     h+='<p class="cap">모든 미용 요금은 얼굴컷 제외 금액이에요. 11kg 이상은 문의가 필요하고, 엉킴·매너 등에 따라 추가요금이 생길 수 있어요. ‘~’ 표시 요금은 시작 금액이라 선택 내역에서 ±5천원씩 조정하세요.</p>';
     return h;
   }
@@ -1091,12 +1307,18 @@ function openUse(cid,pid){
       function getAmt(){return M.mode==='menu'?sum():numOf(inp)}
       function upd(){
         var a=getAmt();
-        if(!a){pv.className='preview idle';pv.textContent=M.mode==='menu'?'메뉴를 고르면 차감 후 잔액이 보여요':'결제 금액을 입력하면 차감 후 잔액이 보여요';go.disabled=true;go.textContent=M.mode==='menu'?'메뉴를 골라 주세요':'금액을 입력하세요';return}
+        if(!a){var onlyFree=M.mode==='menu'&&M.items.length>0;pv.className='preview idle';pv.textContent=onlyFree?'차감할 금액이 없어요. 서비스가 아닌 항목을 골라 주세요.':(M.mode==='menu'?'메뉴를 고르면 차감 후 잔액이 보여요':'결제 금액을 입력하면 차감 후 잔액이 보여요');go.disabled=true;go.textContent=onlyFree?'차감할 금액이 없어요':(M.mode==='menu'?'메뉴를 골라 주세요':'금액을 입력하세요');return}
         go.disabled=false;
         if(a<=p.remaining){pv.className='preview';pv.textContent='차감 후 잔액 '+won(p.remaining-a);go.textContent=won(a)+' 차감'}
         else{pv.className='preview warn';pv.textContent='잔액이 '+won(a-p.remaining)+' 모자라요. 잔액 '+won(p.remaining)+'을 모두 차감하고, 나머지 '+won(a-p.remaining)+'은 따로 결제하세요.';go.textContent='잔액 '+won(p.remaining)+' 모두 차감'}
       }
-      function renderMenu(){box.innerHTML=menuHTML();upd()}
+      function addSvc(){
+        var inp2=$('#f-svc',root),nm=(inp2&&inp2.value||'').trim();
+        if(!nm){if(inp2)inp2.focus();return}
+        M.items.push({key:'s'+(++svcN),name:nm,amt:0,group:'',free:true});inp2.value='';renderMenu();
+      }
+      function renderMenu(){var keep=($('#f-svc',root)||{}).value||'';box.innerHTML=menuHTML();var i2=$('#f-svc',root);if(i2&&keep)i2.value=keep;upd()}
+      box.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target&&e.target.id==='f-svc'){e.preventDefault();addSvc()}});
       renderMenu();
       inp.addEventListener('input',upd);
       $('.sheet',root).addEventListener('click',function(e){
@@ -1120,11 +1342,13 @@ function openUse(cid,pid){
           if(it){it.amt+=Number(b.dataset.d);if(it.amt<=0){M.items=M.items.filter(function(z){return z!==it});if(it.key==='base')M.svc=null}}
         }
         else if(k==='del'){M.items=M.items.filter(function(z){return z.key!==b.dataset.k});if(b.dataset.k==='base')M.svc=null}
+        else if(k==='free'){var fi=M.items.find(function(z){return z.key===b.dataset.k});if(fi)fi.free=!fi.free}
+        else if(k==='svcadd'){addSvc();return}
         renderMenu();
       });
       S.onSubmit=function(){
         var a=getAmt();if(!a)return;
-        var names=M.mode==='menu'?M.items.map(function(z){return z.name}).join(' + '):'';
+        var names=M.mode==='menu'?M.items.map(function(z){return z.name+(z.free?'(서비스)':'')}).join(' + '):'';
         var base=[names,$('#f-note',root).value.trim()].filter(Boolean).join(' · ');
         var res=null;
         mutate(cid,function(x){
@@ -1211,21 +1435,35 @@ function openAdjust(cid,pid){
 /* ----- 회원권 수정 시트 ----- */
 function openEditPass(cid,pid){
   var c=findC(cid),p=c&&findP(c,pid);if(!p)return;
-  var v=p.type==='value';
+  var v=p.type==='value',
+      startD=String((p.log[0]&&p.log[0].kind==='open'?p.log[0].at:p.createdAt)||'').slice(0,10),
+      firstUse=p.log[1]?String(p.log[1].at).slice(0,10):'',
+      startMax=(firstUse&&firstUse<ymd(new Date()))?firstUse:ymd(new Date()),
+      pkg=pkgInfo(p);
   openSheet('회원권 수정','<form id="f-ep" class="form" novalidate>'
     +'<p class="sheet-sub">'+esc(c.name)+'</p>'
     +'<div class="field"><label for="f-title">이름</label><input id="f-title" maxlength="30" autocomplete="off" value="'+esc(p.title)+'"></div>'
     +(v?'<div class="field"><label for="f-rem">현재 잔액</label>'+moneyInput('f-rem','sm')+'</div>':'<div class="field"><label for="f-rem">남은 횟수</label>'+stepper('f-rem',p.remaining)+'</div>')
+    +'<div class="field"><label for="f-start">시작일</label><input id="f-start" type="date" value="'+esc(startD)+'" max="'+esc(startMax)+'"></div>'
     +expiryField(p.expires||'',p.type)
-    +'<p class="cap">잔액이나 횟수를 바꾸면 이용 내역에 ‘조정’으로 남아요.</p><p class="err" id="sheet-err" role="alert" hidden></p>'
+    +'<p class="cap">잔액이나 횟수를 바꾸면 이용 내역에 ‘조정’으로 남아요. '+(pkg?'시작일을 바꾸면 유효기간이 시작일부터 '+pkg.label+'로 자동 계산돼요. (직접 고칠 수도 있어요)':'시작일을 바꿔도 유효기간은 자동으로 바뀌지 않아요.')+'</p><p class="err" id="sheet-err" role="alert" hidden></p>'
     +'<button class="btn primary block" type="submit">저장</button></form>',function(root){
       if(v)setMoney($('#f-rem',root),p.remaining);
+      $('#f-start',root).addEventListener('change',function(){
+        var sv=this.value;if(!pkg||!/^\d{4}-\d{2}-\d{2}$/.test(sv))return;
+        $('#f-exp',root).value=pkgExpiry(pkg,sv);
+      });
       S.onSubmit=function(){
         var title=$('#f-title',root).value.trim();if(!title){sheetErr('이름을 입력해 주세요.');return}
         var exp=$('#f-exp',root).value||'';
         var rem=v?numOf($('#f-rem',root)):Math.min(99,Number(digits($('#f-rem',root).value))||0);
-        mutate(cid,function(x){var pp=findP(x,pid);if(!pp)return false;pp.title=title;pp.expires=exp;
+        var sd=($('#f-start',root).value||'').trim(),res='ok';
+        if(sd&&sd!==startD)snapshotDisk('시작일 수정 직전');
+        mutate(cid,function(x){var pp=findP(x,pid);if(!pp)return false;
+          if(sd&&sd!==startD){res=Ledger.restart(pp,sd);if(res!=='ok')return false}
+          pp.title=title;pp.expires=exp;
           if(rem!==pp.remaining)Ledger.adjust(pp,rem,'직접 조정')});
+        if(res!=='ok'){sheetErr({future:'오늘보다 뒤의 날짜는 고를 수 없어요.',late:'이미 사용한 내역보다 뒤로는 시작일을 정할 수 없어요. 사용 내역의 날짜를 먼저 바꿔 주세요.',bad:'시작일 형식이 올바르지 않아요.',none:'시작일을 바꿀 수 없는 회원권이에요.'}[res]||'저장하지 못했어요.');return}
         closeSheet();toast('회원권을 수정했어요');
       };
     });
@@ -1256,6 +1494,7 @@ function cleanCustomer(c){
     if(!p||!ID_OK.test(String(p.id||''))||(p.type!=='value'&&p.type!=='term'))return;
     var q={id:String(p.id),type:p.type,title:cleanStr(p.title,30)||(p.type==='value'?'정액권':'월관리'),total:cleanNum(p.total),remaining:cleanNum(p.remaining),
       expires:/^\d{4}-\d{2}-\d{2}$/.test(String(p.expires||''))?p.expires:'',createdAt:cleanStr(p.createdAt,16),log:[]};
+    if(p.contacts&&typeof p.contacts==='object'){var ct={exp:cleanStr(p.contacts.exp,10)};if(p.contacts.d30)ct.d30=cleanStr(p.contacts.d30,10);if(p.contacts.d14)ct.d14=cleanStr(p.contacts.d14,10);q.contacts=ct}
     (Array.isArray(p.log)?p.log:[]).forEach(function(e){
       if(!e||!ID_OK.test(String(e.id||'')))return;
       var k=['open','use','charge','adjust'].indexOf(e.kind)>-1?e.kind:'adjust';
@@ -1290,6 +1529,7 @@ function openBackup(){
     +'<p class="sheet-sub">고객 '+customers.length+'명의 회원권과 이용 내역이 '+(mode==='fb'?'서버에 저장돼 있어요'+(fbUser?' ('+esc(fbUser)+')':'')+'.':'이 기기의 브라우저에 저장돼 있어요.')+'</p>'+(mode==='fb'&&!OPEN_MODE?'<button class="btn block" type="button" data-act="logout">로그아웃</button>':'')
     +'<p class="cap">마지막 백업: <b>'+(lb?esc(fmtAt(lb)):'아직 없음')+'</b></p>'
     +'<button class="btn primary block" type="button" data-act="do-backup">백업 파일 저장</button>'
+    +'<button class="btn block" type="button" data-act="edit-tpl">연락 문구 수정</button>'
     +'<label class="btn block" for="f-file" style="cursor:pointer">백업 파일 불러오기</label>'
     +'<input id="f-file" type="file" accept=".json,application/json" hidden>'
     +'<p class="cap">다른 기기로 옮기려면 한쪽에서 백업 파일을 저장하고, 다른 쪽에서 불러오세요. 불러오면 같은 고객은 더 최근에 바꾼 쪽이 남고, 없는 고객은 추가돼요. 저장 후에는 파일을 카카오톡 나에게 보내기나 이메일, 클라우드에 따로 보관해 두세요.</p>'
@@ -1376,6 +1616,11 @@ function cloudBoot(){
       if(!u){fbUser='';customers=[];ready=false;S.sel=null;renderAll();showLogin();return}
       fbUser=u.email||'';cloudHide();ready=false;fbErr=false;renderAll();
       var dataT=setTimeout(function(){if(!ready)cloudFail('데이터를 불러오지 못했어요','서버에서 고객 데이터를 받지 못하고 있어요. 인터넷 연결을 확인하고, 앱 안 브라우저가 아니라 크롬/사파리로 열어 주세요. 계속되면 Firebase 규칙과 Firestore 생성 여부를 확인해야 해요.')},15000);
+      try{
+        tplHook=function(t){fs.collection('settings').doc('contact').set({t30:t.t30,t14:t.t14,at:new Date().toISOString()}).catch(function(){toast('문구를 서버에 저장하지 못했어요. 이 기기에는 저장됐어요.',{ms:4000})})};
+        if(window.__tplUnsub){try{window.__tplUnsub()}catch(e){}}
+        window.__tplUnsub=fs.collection('settings').doc('contact').onSnapshot(function(ds){if(ds&&ds.exists){tplSetCustom(ds.data());}},function(){});
+      }catch(e){}
       fbUnsub=fs.collection('customers').onSnapshot(function(snap){
         clearTimeout(dataT);if(document.getElementById('c-retry'))cloudHide();
         fbCache=!!(snap.metadata&&snap.metadata.fromCache);fbErr=false;
@@ -1475,6 +1720,28 @@ function cancelLog(cid,pid,lid){
   if(res==='ok')toast(amtTxt+' '+kindTxt+'을 취소했어요');
   else{renderDetail();toast(res==='negative'?'이미 사용한 내역이 있어서 취소할 수 없어요. 뒤의 사용 내역부터 취소해 주세요.':'취소할 수 없는 내역이에요.',{ms:5000})}
 }
+function openEditLogDate(cid,pid,lid){
+  var c=findC(cid),p=c&&findP(c,pid),e=p&&p.log.find(function(y){return y.id===lid});if(!e)return;
+  var v=p.type==='value',lab={use:v?'차감':'사용',charge:v?'충전':'추가',adjust:'조정'}[e.kind]||'',
+      amt=(e.delta>0?'+':'−')+(v?won(Math.abs(e.delta)):Math.abs(e.delta)+'회'),
+      op=p.log[0]&&p.log[0].kind==='open'?String(p.log[0].at).slice(0,10):'';
+  openSheet(c.name+' · 내역 날짜 수정','<form id="f-ld" class="form" novalidate>'
+    +'<p class="sheet-sub">'+esc(p.title)+' · '+lab+' '+amt+(e.note?' · '+esc(e.note):'')+'<br>지금 날짜: '+esc(String(e.at).slice(0,10))+' '+esc(String(e.at).slice(11,16))+'</p>'
+    +'<div class="field"><label for="f-ldate">바꿀 날짜</label><input id="f-ldate" type="date" value="'+esc(String(e.at).slice(0,10))+'" max="'+ymd(new Date())+'"'+(op?' min="'+op+'"':'')+'></div>'
+    +'<p class="cap">시각은 그대로 두고 날짜만 바뀌어요. 잔액과 횟수는 바뀌지 않아요.</p>'
+    +'<p class="err" id="sheet-err" role="alert" hidden></p>'
+    +'<button class="btn '+(v?'val':'term')+' block" id="go" type="submit">날짜 저장</button></form>',function(root){
+      S.onSubmit=function(){
+        var nd=($('#f-ldate',root).value||'').trim();
+        if(!nd){sheetErr('날짜를 선택해 주세요.');return}
+        var res='none';
+        snapshotDisk('내역 날짜 수정 직전');
+        var made=mutate(cid,function(x){var pp=findP(x,pid);if(!pp)return false;res=Ledger.redate(pp,lid,nd);if(res!=='ok')return false});
+        if(res==='ok'){closeSheet();toast('날짜를 '+nd.slice(5,7)+'월 '+nd.slice(8,10)+'일로 바꿨어요')}
+        else sheetErr({future:'오늘보다 뒤의 날짜는 고를 수 없어요.',early:'회원권을 등록한 날짜보다 앞설 수 없어요.',negative:'이 날짜로 바꾸면 그 시점의 잔액이 마이너스가 돼요. 다른 날짜를 골라 주세요.',bad:'날짜 형식이 올바르지 않아요.',kind:'등록 내역의 날짜는 바꿀 수 없어요.',mismatch:'내역 합계가 맞지 않아 바꿀 수 없어요. 장부 점검을 먼저 해 주세요.'}[res]||'바꿀 수 없는 내역이에요.');
+      };
+    });
+}
 var termLock={};
 function useTerm(cid,pid){
   var now=Date.now();
@@ -1536,6 +1803,9 @@ document.addEventListener('click',function(e){
     case 'use-term':useTerm(cid,pid);break;
     case 'topup':openTopup(cid,pid);break;
     case 'adjust':openAdjust(cid,pid);break;
+    case 'contacts':openContacts();break;
+    case 'edit-tpl':openTplEditor();break;
+    case 'edit-log-date':openEditLogDate(cid,pid,a.dataset.lid);break;
     case 'cancel-log':if(S.confirm==='log:'+a.dataset.lid){S.confirm=null;snapshotDisk('내역 취소 직전');cancelLog(cid,pid,a.dataset.lid)}else askConfirm('log:'+a.dataset.lid);break;
     case 'edit-pass':openEditPass(cid,pid);break;
     case 'del-pass':if(S.confirm==='pass:'+pid){S.confirm=null;snapshotDisk('회원권 삭제 직전');mutate(cid,function(x){x.passes=x.passes.filter(function(p){return p.id!==pid})});toast('회원권을 삭제했어요')}else askConfirm('pass:'+pid);break;
@@ -1574,7 +1844,7 @@ var IDLE_MS=1*60*1000,idleAt=Date.now(),idleOn=false,idleEl=null,idleTick=null;
 function idleShow(){
   if(idleOn)return;
   if(!idleEl){idleEl=document.createElement('div');idleEl.id='idle';idleEl.setAttribute('role','button');idleEl.setAttribute('aria-label','화면을 터치하면 다시 시작해요');document.body.appendChild(idleEl)}
-  idleEl.innerHTML=LOGO_IMG+'<div class="itime" id="idleTime"></div><div class="idate" id="idleDate"></div><div class="itap">화면을 터치하면 시작돼요</div>';
+  idleEl.innerHTML=LOGO_IMG+'<div class="itime" id="idleTime"></div><div class="idate" id="idleDate"></div>'+(contactList().length?'<div class="idate">연락할 고객 '+contactList().length+'명</div>':'')+'<div class="itap">화면을 터치하면 시작돼요</div>';
   idleClock();idleEl.classList.add('on');idleOn=true;
   idleTick=setInterval(idleClock,15000);
 }
@@ -1606,6 +1876,7 @@ function afterLoad(){
   }
   if(S.sel&&!findC(S.sel))S.sel=null;
 }
+tplLoadLocal();
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 renderAll();
 (function boot(){cloudBoot()
